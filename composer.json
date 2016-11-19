@@ -1,0 +1,23 @@
+{
+  "name": "ereminmdev/yii2-unisender",
+  "description": "UniSender API component for Yii framework.",
+  "keywords": ["yii2","unisender"],
+  "homepage": "https://bitbucket.org/ereminmdev/yii2-unisender",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Michael Eremin",
+      "email": "ereminmdev@gmail.com",
+      "role": "developer"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0",
+    "yiisoft/yii2": "~2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "ereminmdev\\yii2\\unisender\\": ""
+    }
+  }
+}
