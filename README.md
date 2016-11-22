@@ -33,13 +33,3 @@ Yii::$app->get('unisender')->sendSms([
 ## API
 
 UniSender API: http://www.unisender.com/ru/help/api/
-
-## Translate
-
-Example for messages/ru/app.php:
-
-```
-// UniSender component
-'Invalid response from the server. Please try again later.' => 'Некорректный ответ сервера. Пожалуйста, попробуйте чуть позже.',
-'Error connecting to the server.' => 'Ошибка соединения с сервером.',
-```

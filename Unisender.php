@@ -4,6 +4,9 @@ namespace ereminmdev\yii2\unisender;
 
 use yii;
 use yii\base\Object;
+use yii\helpers\ArrayHelper;
+use yii\httpclient\Client as HttpClient;
+use yii\httpclient\Response as HttpResponse;
 
 /**
  * UniSender API component for Yii framework.
@@ -22,14 +25,25 @@ class Unisender extends Object
      */
     public $retryCount = 0;
     /**
-     * @var int
+     * @var string|array|callable see Yii::createObject()
      */
-    public $timeout;
-    /**
-     * @var bool
-     */
-    public $compression = false;
+    public $httpClient = ['class' => 'yii\httpclient\Client'];
 
+
+    /**
+     * @param array $params
+     * @return string
+     */
+    public function subscribe($params)
+    {
+        $params = (array)$params;
+
+        if (empty($params['request_ip'])) {
+            $params['request_ip'] = Yii::$app->request->userIP;
+        }
+
+        return $this->callMethod('subscribe', $params);
+    }
 
     /**
      * @param string $name
@@ -48,83 +62,33 @@ class Unisender extends Object
     }
 
     /**
-     * @param array $params
-     * @return string
-     */
-    public function subscribe($params)
-    {
-        $params = (array)$params;
-
-        if (empty($params['request_ip'])) {
-            $params['request_ip'] = Yii::$app->request->userIP;
-        }
-
-        return $this->callMethod('subscribe', $params);
-    }
-
-    /**
-     * @param string $result
-     * @return bool
-     */
-    public function getResult($result)
-    {
-        if ($result) {
-            $jsonObj = json_decode($result);
-            if (null === $jsonObj) {
-                Yii::$app->session->addFlash('danger', Yii::t('app', 'Invalid response from the server. Please try again later.'));
-                return false;
-            } elseif (!empty($jsonObj->error)) {
-                Yii::$app->session->addFlash('danger', $jsonObj->error . ' (' . $jsonObj->code . ')');
-                return false;
-            } else {
-                return $jsonObj;
-            }
-        } else {
-            Yii::$app->session->addFlash('danger', 'Error connecting to the server.');
-            return false;
-        }
-    }
-
-    /**
      * @param string $methodName
      * @param array $params
-     * @return array
+     * @return HttpResponse
      */
     protected function callMethod($methodName, $params = [])
     {
+        /* @var $httpClient HttpClient */
+        $httpClient = Yii::createObject($this->httpClient);
+
         $url = $methodName . '?format=json';
-
-        if ($this->compression) {
-            $url .= '&api_key=' . $this->apiKey . '&request_compression=bzip2';
-            $content = bzcompress(http_build_query($params));
-        } else {
-            $params = array_merge((array)$params, ['api_key' => $this->apiKey]);
-            $content = http_build_query($params);
-        }
-
-        $contextOptions = [
-            'http' => [
-                'method' => 'POST',
-                'header' => 'Content-type: application/x-www-form-urlencoded',
-                'content' => $content,
-            ],
-        ];
-
-        if ($this->timeout) {
-            $contextOptions['http']['timeout'] = $this->timeout;
-        }
-
+        $params = array_merge((array)$params, ['api_key' => $this->apiKey]);
         $retryCount = 0;
-        $context = stream_context_create($contextOptions);
 
-        $result = false;
         do {
-            $host = $this->getApiHost($retryCount);
-            $result = @file_get_contents($host . $url, false, $context);
-            ++$retryCount;
-        } while (($result === false) && ($retryCount < $this->retryCount));
+            try {
+                $response = $httpClient->createRequest()
+                    ->setUrl($this->getApiHost($retryCount) . $url)
+                    ->setMethod('post')
+                    ->setFormat(HttpClient::FORMAT_RAW_URLENCODED)
+                    ->setData($params)
+                    ->send();
+            } finally {
+                ++$retryCount;
+            }
+        } while (!$response->isOk && ($retryCount < $this->retryCount));
 
-        return $result;
+        return $response;
     }
 
     /**
@@ -138,5 +102,115 @@ class Unisender extends Object
         } else {
             return 'http://www.api.unisender.com/ru/api/';
         }
+    }
+
+    /**
+     * @param HttpResponse $response
+     * @return HttpResponse|bool
+     */
+    public function processResponse($response)
+    {
+        if (!$response->isOk) {
+            Yii::$app->session->addFlash('danger', Yii::t('app', 'Invalid response from the server. Please try again later.'));
+            return false;
+        }
+
+        $responseData = $response->getData();
+
+        if (YII_DEBUG) {
+            Yii::$app->session->addFlash('info', var_export($responseData, true));
+        }
+
+        $result = ArrayHelper::getValue($responseData, 'result', []);
+
+        if (array_key_exists(0, $result)) {
+            $isOk = false;
+            foreach ($result as $data) {
+                $isOk = $isOk || $this->checkResponseData($data);
+            }
+        } else {
+            $isOk = $this->checkResponseData($result);
+        }
+
+        return $isOk ? $result : false;
+    }
+
+    /**
+     * @param array $data
+     * @return bool
+     */
+    public function checkResponseData($data)
+    {
+        if (empty($data)) {
+            Yii::$app->session->addFlash('danger', Yii::t('app', 'Invalid response from the server. Please try again later.'));
+            return false;
+        }
+
+        $warnings = ArrayHelper::getValue($data, 'warnings', []);
+        foreach ($warnings as $warning) {
+            Yii::$app->session->addFlash('warning', $warning);
+        }
+
+        $errors = ArrayHelper::getValue($data, 'errors', []);
+        if (isset($data['error'])) {
+            $errors[] = $data['error'];
+        }
+
+        if (!empty($errors)) {
+            foreach ($errors as $error) {
+                $this->processError($error);
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param array $errorData
+     */
+    public function processError($errorData)
+    {
+        if (is_array($errorData)) {
+            $error = Yii::t('yii', 'Error') . ': ' . $errorData['error'];
+            $error .= isset($errorData['code']) ? '<br>' . ArrayHelper::getValue(static::errorCodes(), $errorData['code'], '') : '';
+            Yii::$app->session->addFlash('error', $error);
+        }
+    }
+
+    /**
+     * @return array UniSender API error codes
+     */
+    public static function errorCodes()
+    {
+        return [
+            'unspecified' => 'Тип ошибки не указан. Подробности смотрите в сообщении.',
+            'invalid_api_key' => 'Указан неправильный ключ доступа к API. Проверьте, совпадает ли значение api_key со значением, указанным в личном кабинете.',
+            'access_denied' => 'Доступ запрещён. Проверьте, включён ли доступ к API в личном кабинете и не обращаетесь ли вы к методу, прав доступа к которому у вас нет.',
+            'unknown_method' => 'Указано неправильное имя метода',
+            'invalid_arg' => 'Указано неправильное значение одного из аргументов метода',
+            'not_enough_money' => 'Не хватает денег на счету для выполнения метода',
+            'retry_later' => 'Временный сбой. Попробуйте ещё раз позднее.',
+            'api_call_limit_exceeded_for_api_key' => 'Сработало ограничение по вызову методов API в единицу времени. На данный момент это 300 вызовов в минуту.',
+            'api_call_limit_exceeded_for_ip' => 'Сработало ограничение по вызову методов API в единицу времени. На данный момент это 300 вызовов в минуту.',
+            'dest_invalid' => 'Доставка невозможна, телефон получателя некорректен',
+            'src_invalid' => 'Доставка невозможна, аргумент sender (поле «отправитель») некорректен',
+            'has_been_sent' => 'SMS данному адресату уже был отправлен. Допустимый интервал между двумя отправками - 1 минута.',
+            'unsubscribed_globally' => 'Адресат глобально отписан от рассылок',
+            'attachment_is_not_bytestring' => 'Содержимое вложения не является скалярным значением.',
+            'attachment_quota_error' => 'Превышен допустимый размер вложения.',
+            'body_empty' => 'Отсутствует тело письма.',
+            'body_exceeds_length' => 'Тело письма превышает допустимый размер.',
+            'empty_subject' => 'Не указана тема письма.',
+            'subject_exceeds_length' => 'Тема письма превышает допустимый размер.',
+            'wrong_header_parameter' => 'Не указан обязательный параметр заголовка.',
+            'header_not_allowed' => 'Указанный заголовок не поддерживается.',
+            'invalid_email' => 'Недопустимый Email-адрес.',
+            'empty_sender_name' => 'Не указано имя отправителя',
+            'invalid_sender_email' => 'Недопустимый Email-адрес отправителя.',
+            'unchecked_sender_email' => 'Email-адрес отправителя не подтвержден.',
+            'unsupported_lang' => 'Указанный язык не поддерживается системой.',
+            'unsubscribe_link_missing' => 'Вы забыли добавить ссылку отписки: {{_UnsubscribeUrl}}',
+        ];
     }
 }
