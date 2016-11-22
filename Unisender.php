@@ -117,11 +117,12 @@ class Unisender extends Object
         $retryCount = 0;
         $context = stream_context_create($contextOptions);
 
+        $result = false;
         do {
             $host = $this->getApiHost($retryCount);
-            $result = file_get_contents($host . $url, false, $context);
+            $result = @file_get_contents($host . $url, false, $context);
             ++$retryCount;
-        } while ($result === false && $retryCount < $this->retryCount);
+        } while (($result === false) && ($retryCount < $this->retryCount));
 
         return $result;
     }
