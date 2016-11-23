@@ -4,6 +4,7 @@ namespace ereminmdev\yii2\unisender;
 
 use yii;
 use yii\base\Object;
+use yii\base\ErrorException;
 use yii\helpers\ArrayHelper;
 use yii\httpclient\Client as HttpClient;
 use yii\httpclient\Response as HttpResponse;
@@ -76,9 +77,10 @@ class Unisender extends Object
     {
         $url = $methodName . '?format=json';
         $params = array_merge((array)$params, ['api_key' => $this->apiKey]);
-        $retryCount = 0;
 
+        $retryCount = 0;
         do {
+            $response = false;
             try {
                 $response = $this->getHttpClient()->createRequest()
                     ->setUrl($this->getApiHost($retryCount) . $url)
@@ -86,10 +88,10 @@ class Unisender extends Object
                     ->setFormat(HttpClient::FORMAT_RAW_URLENCODED)
                     ->setData($params)
                     ->send();
-            } finally {
-                ++$retryCount;
+            } catch (ErrorException $e) {
+                Yii::warning('Failed to open stream: HTTP request to UniSender API failed!');
             }
-        } while (!$response->isOk && ($retryCount < $this->retryCount));
+        } while ((++$retryCount < $this->retryCount) && ($response instanceof HttpResponse) && !$response->isOk);
 
         return $response;
     }
