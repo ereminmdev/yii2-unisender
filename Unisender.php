@@ -25,9 +25,15 @@ class Unisender extends Object
      */
     public $retryCount = 0;
     /**
-     * @var string|array|callable see Yii::createObject()
+     * @var array|\Closure the default configuration used when creating client object
+     * @see yii\httpclient\Client
      */
-    public $httpClient = ['class' => 'yii\httpclient\Client'];
+    public $httpClientConfig = [];
+    /**
+     * @var string the default client class name when creating client object
+     * @see httpClientConfig
+     */
+    public $httpClientClass = 'yii\httpclient\Client';
 
 
     /**
@@ -68,16 +74,13 @@ class Unisender extends Object
      */
     protected function callMethod($methodName, $params = [])
     {
-        /* @var $httpClient HttpClient */
-        $httpClient = Yii::createObject($this->httpClient);
-
         $url = $methodName . '?format=json';
         $params = array_merge((array)$params, ['api_key' => $this->apiKey]);
         $retryCount = 0;
 
         do {
             try {
-                $response = $httpClient->createRequest()
+                $response = $this->getHttpClient()->createRequest()
                     ->setUrl($this->getApiHost($retryCount) . $url)
                     ->setMethod('post')
                     ->setFormat(HttpClient::FORMAT_RAW_URLENCODED)
@@ -102,6 +105,27 @@ class Unisender extends Object
         } else {
             return 'http://www.api.unisender.com/ru/api/';
         }
+    }
+
+    private $_httpClient;
+
+    /**
+     * @return HttpClient
+     */
+    public function getHttpClient()
+    {
+        if ($this->_httpClient === null) {
+            $config = $this->httpClientConfig;
+            if ($config instanceof \Closure) {
+                $config = call_user_func($config);
+            }
+            if (!isset($config['class'])) {
+                $config['class'] = $this->httpClientClass;
+            }
+            $this->_httpClient = Yii::createObject($config);
+        }
+
+        return $this->_httpClient;
     }
 
     /**
