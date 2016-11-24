@@ -4,7 +4,6 @@ namespace ereminmdev\yii2\unisender;
 
 use yii;
 use yii\base\Object;
-use yii\base\ErrorException;
 use yii\helpers\ArrayHelper;
 use yii\httpclient\Client as HttpClient;
 use yii\httpclient\Response as HttpResponse;
@@ -71,27 +70,26 @@ class Unisender extends Object
     /**
      * @param string $methodName
      * @param array $params
-     * @return HttpResponse
+     * @return HttpResponse|false
      */
     protected function callMethod($methodName, $params = [])
     {
-        $url = $methodName . '?format=json';
-        $params = array_merge((array)$params, ['api_key' => $this->apiKey]);
+        $params = ArrayHelper::merge((array)$params, ['api_key' => $this->apiKey]);
 
         $retryCount = 0;
         do {
             $response = false;
             try {
                 $response = $this->getHttpClient()->createRequest()
-                    ->setUrl($this->getApiHost($retryCount) . $url)
+                    ->setUrl($this->getApiHost($retryCount) . $methodName . '?format=json')
                     ->setMethod('post')
                     ->setFormat(HttpClient::FORMAT_RAW_URLENCODED)
                     ->setData($params)
                     ->send();
-            } catch (ErrorException $e) {
-                Yii::warning('Failed to open stream: HTTP request to UniSender API failed!');
+            } catch (\ErrorException $e) {
+                Yii::error($e, 'unisender');
             }
-        } while ((++$retryCount < $this->retryCount) && ($response instanceof HttpResponse) && !$response->isOk);
+        } while ((++$retryCount < $this->retryCount) && (!($response instanceof HttpResponse) || !$response->isOk));
 
         return $response;
     }
@@ -132,11 +130,11 @@ class Unisender extends Object
 
     /**
      * @param HttpResponse $response
-     * @return HttpResponse|bool
+     * @return array|false
      */
     public function processResponse($response)
     {
-        if (!$response->isOk) {
+        if (!($response instanceof HttpResponse) || !$response->isOk) {
             Yii::$app->session->addFlash('danger', Yii::t('app', 'Invalid response from the server. Please try again later.'));
             return false;
         }
