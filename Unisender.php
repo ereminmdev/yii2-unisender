@@ -87,7 +87,7 @@ class Unisender extends Object
                     ->setData($params)
                     ->send();
             } catch (\ErrorException $e) {
-                Yii::error($e, 'unisender');
+                Yii::error($e, __METHOD__);
             }
         } while ((++$retryCount < $this->retryCount) && (!($response instanceof HttpResponse) || !$response->isOk));
 
