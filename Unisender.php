@@ -101,9 +101,9 @@ class Unisender extends Object
     protected function getApiHost($retryCount = 0)
     {
         if ($retryCount % 2 === 0) {
-            return 'http://api.unisender.com/ru/api/';
+            return 'https://api.unisender.com/ru/api/';
         } else {
-            return 'http://www.api.unisender.com/ru/api/';
+            return 'https://www.api.unisender.com/ru/api/';
         }
     }
 
