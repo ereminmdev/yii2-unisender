@@ -9,10 +9,53 @@ use yii\httpclient\Client as HttpClient;
 use yii\httpclient\Response as HttpResponse;
 
 /**
- * UniSender API component for Yii framework.
+ * UniSender component for Yii framework.
  *
- * @link https://github.com/unisender-dev/php-api-wrapper
- * @link http://www.unisender.com/ru/help/api/
+ * @link https://www.unisender.com/en/support/integration/api/
+ * @link https://www.unisender.com/ru/support/integration/api/
+ *
+ * @method sendSms
+ * @method sendEmail
+ * @method getLists
+ * @method createList
+ * @method updateList
+ * @method deleteList
+ * @method exclude
+ * @method unsubscribe
+ * @method importContacts
+ * @method exportContacts
+ * @method getTotalContactsCount
+ * @method getContactCount
+ * @method createEmailMessage
+ * @method createSmsMessage
+ * @method createCampaign
+ * @method getActualMessageVersion
+ * @method checkSms
+ * @method sendTestEmail
+ * @method checkEmail
+ * @method updateOptInEmail
+ * @method getWebVersion
+ * @method deleteMessage
+ * @method createEmailTemplate
+ * @method updateEmailTemplate
+ * @method deleteTemplate
+ * @method getTemplate
+ * @method getTemplates
+ * @method listTemplates
+ * @method getCampaignDeliveryStats
+ * @method getCampaignAggregateStats
+ * @method getVisitedLinks
+ * @method getCampaigns
+ * @method getCampaignStatus
+ * @method getMessages
+ * @method getMessage
+ * @method listMessages
+ * @method getFields
+ * @method createField
+ * @method updateField
+ * @method deleteField
+ * @method getTags
+ * @method deleteTag
  */
 class Unisender extends Object
 {
@@ -34,6 +77,10 @@ class Unisender extends Object
      * @see httpClientConfig
      */
     public $httpClientClass = 'yii\httpclient\Client';
+    /**
+     * @var string
+     */
+    public $platform = '';
 
 
     /**
@@ -74,6 +121,10 @@ class Unisender extends Object
      */
     protected function callMethod($methodName, $params = [])
     {
+        if ($this->platform !== '') {
+            $params['platform'] = $this->platform;
+        }
+
         $params = ArrayHelper::merge((array)$params, ['api_key' => $this->apiKey]);
 
         $retryCount = 0;
@@ -81,7 +132,7 @@ class Unisender extends Object
             $response = false;
             try {
                 $response = $this->getHttpClient()->createRequest()
-                    ->setUrl($this->getApiHost($retryCount) . $methodName . '?format=json')
+                    ->setUrl($this->getApiHost() . $methodName . '?format=json')
                     ->setMethod('post')
                     ->setFormat(HttpClient::FORMAT_RAW_URLENCODED)
                     ->setData($params)
@@ -95,16 +146,11 @@ class Unisender extends Object
     }
 
     /**
-     * @param int $retryCount
      * @return string
      */
-    protected function getApiHost($retryCount = 0)
+    protected function getApiHost()
     {
-        if ($retryCount % 2 === 0) {
-            return 'https://api.unisender.com/ru/api/';
-        } else {
-            return 'https://www.api.unisender.com/ru/api/';
-        }
+        return 'https://api.unisender.com/ru/api/';
     }
 
     private $_httpClient;
