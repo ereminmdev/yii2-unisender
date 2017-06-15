@@ -193,7 +193,7 @@ class Unisender extends Object
 
         $result = ArrayHelper::getValue($responseData, 'result', []);
 
-        if (array_key_exists(0, $result)) {
+        if (is_array($result) && array_key_exists(0, $result)) {
             $isOk = false;
             foreach ($result as $data) {
                 $isOk = $isOk || $this->checkResponseData($data);
