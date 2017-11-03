@@ -3,7 +3,7 @@
 namespace ereminmdev\yii2\unisender;
 
 use yii;
-use yii\base\Object;
+use yii\base\BaseObject;
 use yii\helpers\ArrayHelper;
 use yii\httpclient\Client as HttpClient;
 use yii\httpclient\Response as HttpResponse;
@@ -57,7 +57,7 @@ use yii\httpclient\Response as HttpResponse;
  * @method getTags
  * @method deleteTag
  */
-class Unisender extends Object
+class Unisender extends BaseObject
 {
     /**
      * @var string UniSender API key
