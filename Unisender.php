@@ -191,7 +191,7 @@ class Unisender extends BaseObject
             Yii::$app->session->addFlash('info', var_export($responseData, true));
         }
 
-        $result = ArrayHelper::getValue($responseData, 'result', []);
+        $result = $responseData['result'] ?? [];
 
         if (is_array($result) && array_key_exists(0, $result)) {
             $isOk = false;
@@ -216,12 +216,12 @@ class Unisender extends BaseObject
             return false;
         }
 
-        $warnings = ArrayHelper::getValue($data, 'warnings', []);
+        $warnings = $data['warnings'] ?? [];
         foreach ($warnings as $warning) {
             Yii::$app->session->addFlash('warning', $warning);
         }
 
-        $errors = ArrayHelper::getValue($data, 'errors', []);
+        $errors = $data['errors'] ?? [];
         if (isset($data['error'])) {
             $errors[] = $data['error'];
         }
@@ -243,7 +243,7 @@ class Unisender extends BaseObject
     {
         if (is_array($errorData)) {
             $error = Yii::t('yii', 'Error') . ': ' . $errorData['error'];
-            $error .= isset($errorData['code']) ? '<br>' . ArrayHelper::getValue(static::errorCodes(), $errorData['code'], '') : '';
+            $error .= isset($errorData['code']) ? '<br>' . (static::errorCodes()[$errorData['code']] ?? '') : '';
             Yii::$app->session->addFlash('error', $error);
         }
     }

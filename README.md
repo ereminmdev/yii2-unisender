@@ -4,7 +4,7 @@ UniSender API component for Yii framework.
 
 ## Install
 
-``composer require ereminmdev/yii2-unisender``
+``composer require --prefer-dist ereminmdev/yii2-unisender``
 
 ## Configure
 
