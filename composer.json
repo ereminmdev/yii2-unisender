@@ -2,7 +2,7 @@
   "name": "ereminmdev/yii2-unisender",
   "description": "UniSender component for Yii framework.",
   "keywords": ["yii2","unisender"],
-  "homepage": "https://bitbucket.org/ereminmdev/yii2-unisender",
+  "homepage": "https://github.com/ereminmdev/yii2-unisender",
   "type": "yii2-extension",
   "license": "MIT",
   "authors": [
@@ -13,7 +13,7 @@
     }
   ],
   "require": {
-    "php": ">=7.0",
+    "php": ">=7.4",
     "yiisoft/yii2": "~2.0.13",
     "yiisoft/yii2-httpclient": "^2.0"
   },

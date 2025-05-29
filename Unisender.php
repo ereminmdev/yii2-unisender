@@ -138,7 +138,7 @@ class Unisender extends BaseObject
                     ->setData($params)
                     ->send();
             } catch (\ErrorException $e) {
-                Yii::error($e, __METHOD__);
+                Yii::error([$e, __FILE__ . ':' . __LINE__]);
             }
         } while ((++$retryCount < $this->retryCount) && (!($response instanceof HttpResponse) || !$response->isOk));
 
